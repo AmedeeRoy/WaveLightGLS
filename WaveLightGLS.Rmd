@@ -1,0 +1,323 @@
+---
+output:
+  html_document:
+    fig_caption: yes
+    keep_md: no
+    number_sections: no
+    theme: journal
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+---
+
+# WaveLightGLS
+
+## Read Data
+
+Read BASTag data and compute 
+
+```{r}
+# Read Data
+birdGLS = create.birdGLS(lig, act, tem, metadata, gls)
+
+# Detect Twilights  
+tw <- get.twilight(birdGLS$light, THRESHOLD = 2.5, DARK.MIN = 300)
+trn <- export2GeoLight(tw)
+solar.angle = getElevation(trn, known.coord = birdGLS$Pos.Deployment,  plot = FALSE)
+
+# Calibration on first month
+solar.angle = getElevation(trn[1:min(60, nrow(trn)),], known.coord = birdGLS$Pos.Deployment,  lnorm.pars = TRUE)
+
+# Derive positions with Threshold method
+coordGeoLight = coord(trn, degElevation = solar.angle)
+```
+
+```{r}
+# Compute activity for each half day
+birdDD <- create.birdDD(birdGLS, trn)
+datetime = birdDD$days$tFirst + seconds(difftime(birdDD$days$tSecond, birdDD$days$tFirst, units = "secs")/2)
+
+coord <- coordGeoLight
+coord_noNA = coord[!is.na(rowSums(coord)),]
+
+CRDS <- data.frame(x = coord_noNA[,1], y = coord_noNA[,2])
+
+
+# Compute KDE
+N = 100
+H = 2
+f1 <- with(CRDS, kde2d(CRDS[,1], CRDS[,2], n = N, h = H, lims = c(-60, 0, -30, 20)))
+LKL <- data.frame(expand.grid(x = f1$x, y = f1$y), z = as.vector(f1$z))
+LKL[,3] <- LKL[,3]/sum(LKL[,3])
+colnames(LKL) <- c("longitude", "latitude", "norm")
+
+```
+
+```{r}
+map = world
+eez = EEZ_br
+alpha = 0.7
+
+fdn <- data.frame(longitude = c(-32.43, -33.80, -29.35), latitude = c(-3.85, -3.86, 0.92), 
+                  z=c("Fernando de Noronha","Atol das Rocas","Sao Pedro Sao Paolo"))
+
+country.label <- data.frame(longitude = c(-50, -47, -37.25), latitude = c(-12, 9, -15), 
+                            name = c("Brazil", "Atlantic Ocean", "EEZ"))
+
+
+### COMPUTE PRESENCE IN ZEE
+p = Polygon(cbind(EEZ_br$long, EEZ_br$lat))
+ps = Polygons(list(p),1)
+sps = SpatialPolygons(list(ps))
+PRESENCE = sum(LKL[!is.na(over(SpatialPoints(LKL[,1:2]), sps)), 3])
+  
+
+MAX <- max(LKL$norm, na.rm = TRUE)
+MIN <- min(LKL$norm, na.rm = TRUE)
+
+prob.pre <- function(x){
+  return(abs(sum(LKL$norm[LKL$norm>= x], na.rm = TRUE) - quantile))
+}
+bk <- NULL
+for (quantile in c(0.25, 0.5, 0.75, 0.95)){
+  max <-  optimize(f = prob.pre, interval = c(1e-100,MAX))
+  bk <- c(bk, max$minimum)
+}
+  
+gp <- ggplot() + ggtitle("", subtitle = paste0("Presence in ZEE : " , round(PRESENCE, 2))) +
+  geom_polygon(data = EEZ_br[-(250:1550),], mapping = aes(long,lat, alpha = 1), fill = "gray",
+               colour = "black", linetype = 2) +
+  theme_bw() + theme(legend.position = "none")+  xlab("") + ylab("") 
+
+gp <- gp +
+      scale_fill_gradientn("Probability of presence", colours= c("white", "yellow", "red"),
+                     na.value = "white", values=c(0, 0.015, 1)) +
+      geom_tile(aes(x = longitude, y = latitude, fill = norm, alpha= 1), data = LKL)+
+      geom_contour(aes(x = longitude, y = latitude, z = norm), data = LKL, colour = "black", na.rm=TRUE,
+                   breaks=bk) +
+      geom_point(data = CRDS, mapping= aes(x, y),
+               size = 1, col = "red", alpha= alpha) +
+      geom_map(data = map, map=map, aes(map_id=id),
+             fill="darkgray", color="#7f7f7f", size=0.5) +
+      coord_fixed(xlim = c(-55, -25), ylim = c(-20, 10)) +
+      geom_text(data=country.label, mapping = aes(longitude, latitude, label = name), fontface="italic") +
+      geom_point(data = fdn, mapping= aes(longitude, latitude, shape= factor(z)),
+                 size = 3)
+
+plot(gp)
+```
+
+
+## Demonstrate Synchronicity (activity)
+
+### Plot Activity vs Longitude
+
+```{r}
+datetime <- datetime[!is.nan(birdDD$activity$mean)]
+coord <- coordGeoLight[!is.nan(birdDD$activity$mean),1]
+act <- birdDD$activity$mean[!is.nan(birdDD$activity$mean)]
+```
+
+```{r fig.height=5, fig.width=20}
+par(mar = c(3,6,1,6))
+plot(datetime, coord, type = "l", lwd = 3, pch = 15, ylim = c(-36, -28), xlab = "", ylab = "",
+     xaxt = 'n', yaxt = 'n', xaxs = "i")
+axis(1, at = datetime[day(datetime) == 1 & hour(datetime) < 12],
+     labels = month.name[month(datetime[day(datetime) == 1 & hour(datetime) < 12])],
+     cex.axis = 1.5)
+axis(2, at = seq(-36,-28, length.out = 3), labels = seq(-36,-28, length.out = 3), las =1, cex.axis = 1.5)
+
+lines(datetime, act*(8/200)-36, col = "red")
+axis(4, at = seq(-36,-28,2), labels = seq(0,100,25), las =1, col = "red", col.axis = "red", cex.axis = 1.5)
+abline(h=-40:-20, lty = 2, col = "grey")
+mtext("Activity (%)", 4, line = 4, cex = 1.5, col = "red")
+mtext("Longitude (°)", 2, line = 4, cex = 1.5)
+box(lwd = 2)
+```
+
+### Wavelet Analysis
+
+```{r}
+# Wavelet Analysis - Compute Coherency Coefficient
+wc <- WaveletCoherency(coord, act, dt = 1, dj = 1/20, 
+                             lowerPeriod = 2, upperPeriod = 32,
+                             window.type.t = 0, window.type.s = 0,
+                             window.size.t = 5, window.size.s = 1/4)
+
+coi = COI(start = 1, dt = 1, nc = wc$nc, nr = wc$nr, Period = wc$Period)
+```
+
+### P-VALUE computation
+
+```{r}
+P.VALUE <- 0 * wc$Power.xy
+NB = 100
+for (n in 1:NB){
+  coord_ <- sample(coord, length(coord), replace = TRUE)
+  act_ <- sapply(1:length(act), function(i){
+    sample( act[seq(i%%2, length(act), by = 2)], 1)
+  })
+  
+  wc_ <- WaveletCoherency(coord_, act_, dt = 1, dj = 1/20, lowerPeriod = 2, 
+                                upperPeriod = 32, window.type.t = 0, window.type.s = 0, window.size.t = 5, 
+                                window.size.s = 1/4) 
+  
+  # Compute p-value
+  P.VALUE[wc_$Power.xy >= wc$Power.xy] = P.VALUE[wc_$Power.xy >= wc$Power.xy] + 1
+}
+P.VALUE = P.VALUE/NB
+```
+
+```{r}
+image2D( t(apply(wc$Power.xy, 2, rev)), datetime, 1:length(wc$Period),
+       col = viridis(100, begin = 0, end = 1),
+      xlab = "", ylab = "Periods (x12h)", main = "Cross-Wavelet Power",
+      xaxt = 'n', yaxt = 'n')
+axis(1, at = datetime[seq(5, length(datetime), length.out = 20)],
+     labels = as.Date(datetime[seq(5, length(datetime), length.out = 20)]),
+     cex.axis = 1)
+axis(2, at = which(wc$Period%%2==0), labels =  c(32,16, 8,4,2), las = 1)
+contour(z = t(apply(P.VALUE>0.01, 2, rev)), x = datetime, y=1:length(wc$Period), add = TRUE,
+        nlevels = 1, col = 'white', drawlabels = FALSE)
+
+
+m <- which(wc$Power.xy == max(wc$Power.xy), arr.ind = TRUE)
+m_low <- max(1, m[2]-10)
+m_up <- min(wc$nc, m[2]+10)
+points(datetime[m[2]], wc$nr-m[1], pch = 19, lwd = 2, col = "darkorange")
+```
+
+### Extract of Time series
+
+Extract of timeseries vs reconstructed wavelet
+
+```{r}
+real.morlet.wavelet <-function(t){
+  pi ^(-1/4) *  exp(-1/2 * t^2) * cos(6 * t)
+}
+
+plot(datetime[m_low:m_up], coord[m_low:m_up], type = 'l', col = "red", lwd = 2, cex = 1.5)
+scale = wc$Scale[m[1]]
+time = datetime[m[2]]
+xx <- seq(datetime[m_low], datetime[m_up], length.out = 100)
+yy <- seq(m_low, m_up, length.out = 100)
+lines(xx, mean(coord[m_low:m_up]) + 1/sqrt(scale) * real.morlet.wavelet((yy - m[2])/scale),
+      col = "blue", lty = 2)
+
+```
+
+```{r}
+wc$p.value <- P.VALUE
+save(birdGLS, birdDD, wc, file = paste0("./results/", gls, ".RData"))
+```
+
+## Explore Synchronicity (cloud)
+
+### Plot Precipitable water vs Longitude
+
+```{r}
+# GET NC
+data.cloud <- ncdf4::nc_open("./data/NCEP_precipitable_waters.nc")
+
+lat <- ncdf4::ncvar_get(data.cloud, varid="lat")
+lon <- ncdf4::ncvar_get(data.cloud, varid="lon")
+t <-ncdf4::ncvar_get(data.cloud, varid="time")
+t <- as.POSIXct("1800-01-01- 00:00:00", tz = "GMT") + hours(t)
+
+# daily average
+date <- unique(as.Date(datetime))
+coord_daily <- rep(NA, length(date))
+pw_daily <- rep(NA, length(date))
+
+for (i in 1:length(date)){
+  coord_daily[i] <- mean(coord[which(as.Date(datetime) == date[i])])
+}
+
+idx_lon <- which.min(abs(360+birdGLS$Pos.Deployment[1] - lon))
+idx_lat <- which.min(abs(birdGLS$Pos.Deployment[2] - lat))
+i = 1
+for (d in date){
+  idx = which(as.Date(t)==d)
+  pw_daily[i]<-ncdf4::ncvar_get(data.cloud, varid="pr_wtr", start = c(idx_lon,idx_lat,idx[1]),                                count=c(1,1,1))
+  i = i+1
+}
+```
+
+```{r}
+plot(1:length(coord_daily), coord_daily, type = 'l')
+lines(1:length(coord_daily), (pw_daily-24)*(8/40)-36, col = 'red')
+```
+
+### Wavelet Analysis
+
+```{r}
+# Wavelet Analysis - Compute Coherency Coefficient
+wc_cloud <- WaveletCoherency(coord_daily, pw_daily, dt = 1, dj = 1/20, 
+                             lowerPeriod = 2, upperPeriod = 16,
+                             window.type.t = 0, window.type.s = 0,
+                             window.size.t = 5, window.size.s = 1/4)
+```
+
+
+### P-VALUE computation
+
+```{r}
+P.VALUE_cloud <- 0 * wc_cloud$Power.xy
+NB = 100
+for (n in 1:NB){
+  coord_daily_ <- sample(coord_daily, length(coord_daily), replace = TRUE)
+  pw_daily_ <- sample(pw_daily, length(pw_daily), replace = TRUE)
+  
+  
+  wc_cloud_ <- WaveletCoherency(coord_daily_, pw_daily_, dt = 1, dj = 1/20, lowerPeriod = 2, 
+                                upperPeriod = 16, window.type.t = 0, window.type.s = 0, window.size.t = 5, 
+                                window.size.s = 1/4) 
+  
+  # Compute p-value
+  P.VALUE_cloud[wc_cloud_$Power.xy >= wc_cloud$Power.xy] = P.VALUE_cloud[wc_cloud_$Power.xy >= wc_cloud$Power.xy] + 1
+}
+
+
+P.VALUE_cloud = P.VALUE_cloud/NB
+```
+
+```{r}
+image2D( t(apply(wc_cloud$Power.xy, 2, rev)), date, 1:length(wc_cloud$Period),
+       col = viridis(100, begin = 0, end = 1),
+      xlab = "", ylab = "Periods (x12h)", main = "Cross-Wavelet Power",
+      xaxt = 'n', yaxt = 'n')
+axis(1, at = date[seq(5, length(date), length.out = 20)],
+     labels = as.Date(date[seq(5, length(date), length.out = 20)]),
+     cex.axis = 1)
+axis(2, at = which(wc_cloud$Period%%2==0), labels =  c(32, 16,8,4), las = 1)
+contour(z = t(apply(P.VALUE_cloud>0.01, 2, rev)), x = date, y=1:length(wc_cloud$Period), add = TRUE,
+        nlevels = 1, col = 'white', drawlabels = FALSE)
+
+
+m <- which(wc_cloud$Power.xy == max(wc_cloud$Power.xy), arr.ind = TRUE)
+m_low <- max(1, m[2]-10)
+m_up <- min(wc_cloud$nc, m[2]+10)
+points(date[m[2]], wc_cloud$nr-m[1], pch = 19, lwd = 2, col = "darkorange")
+```
+
+### Extract Time series
+
+
+```{r}
+
+plot(date[m_low:m_up], coord_daily[m_low:m_up], type = 'l', col = "red", lwd = 2, cex = 1.5)
+scale = wc_cloud$Scale[m[1]]
+time = date[m[2]]
+xx <- seq(date[m_low], date[m_up], length.out = 100)
+yy <- seq(m_low, m_up, length.out = 100)
+lines(xx, mean(coord_daily[m_low:m_up]) + 1/sqrt(scale) * real.morlet.wavelet((yy - m[2])/scale),
+      col = "blue", lty = 2)
+```
+
+
+
+
+
+
+
