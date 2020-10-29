@@ -13,3 +13,9 @@ Materials for the paper "Did the animal move? A cross-wavelet approach to geoloc
 Individual analysis are conducted through the notebook *WaveLightGLS.Rmd* for each individual.
 
 Global analysis are conducted in the files *Figure_1_and_2.R*, *Figure_3.R*, and *Figure_4.R*
+
+## Visualization of Results
+
+In order to visualize html files of individual results (in case they are too heavy to be visualized within github):
+1. go to the following address https://htmlpreview.github.io/
+2. enter the link location of the html file you want to preview  
