@@ -14,14 +14,19 @@ solar.angle = getElevation(birdDD$days, known.coord = birdGLS$Pos.Deployment, pl
 coord = coord(birdDD$days, degElevation = solar.angle)[,1]
 act <- birdDD$activity$mean[!is.nan(birdDD$activity$mean)]
 
-png('./figure/Figure_3.png', width = 810, height = 550)
+png('./figure/Figure_3.png', width = 650, height = 550)
 
 ### select window
 window = 70:160
 
 layout(matrix(c(1,1,1,5,
-                1,1,1,3,
+                1,1,1,5,
+                1,1,1,5,
+                1,1,1,5,
                 2,2,2,3,
+                2,2,2,3,
+                2,2,2,3,
+                2,2,2,4,
                 2,2,2,4,
                 2,2,2,4), byrow = TRUE, ncol = 4))
 
@@ -30,12 +35,13 @@ plot(datetime[window], coord[window], type = "l", lwd = 3, pch = 15, ylim = c(-3
      xaxt = 'n', yaxt = 'n', xaxs = "i")
 axis(2, at = seq(-35,-28, by = 2), labels = seq(-35,-28, by = 2), las =1,
      cex.axis = 1.2)
-lines(datetime, act*(7/200)-35, col = "gray22", lty = 3)
+lines(datetime, act*(7/200)-35, col = "gray22", lty = 3, lwd = 1.5)
 axis(4, at = seq(-35,-28, length.out = 5), labels = seq(0,100,25), las =1, col = "gray22", 
      col.axis = "gray22", cex.axis = 1.2)
 # abline(h=-40:-20, lty = 2, col = "grey")
 mtext("Activity (%)", 4, line = 4, cex = 1, col = "gray22")
 mtext("Longitude (°)", 2, line = 4, cex = 1)
+abline(h = birdGLS$Pos.Deployment[1])
 
 M <- list(c(87,67), c(138, 42))
 col = c("firebrick", "firebrick")
@@ -97,7 +103,7 @@ nights <- birdDD$days[ window, ]
 omega0 = 6
 title = c("(a)", "(b)")
 
-par(mar = c(0,1,10,3))
+par(mar = c(3,1,3,3))
 m <- M[[1]]
 m[2] <- wc$nr - m[2]
 m_low <- max(1, m[1]-10)
@@ -105,14 +111,14 @@ m_up <- min(wc$nc, m[1]+10)
 plot(datetime[m_low:m_up], coord[m_low:m_up], 
      xlab = "", ylab = "", bty = 'n',
      yaxt = "n", xaxt= 'n', main = "",
-     type = 'l', ylim = c(-37, -26), col = "black", lwd = 2, cex = 1.5)
-lines(datetime[m_low:m_up], act[m_low:m_up]*(8/200)-36,lty = 3, col = "gray22")
+     type = 'l', ylim = c(-37, -26), col = "black", lwd = 3, cex = 1.5)
+lines(datetime[m_low:m_up], act[m_low:m_up]*(8/200)-36,lty = 3, col = "gray22", lwd = 2)
 scale = wc$Scale[m[2]]
 time = datetime[m[1]]
 xx <- seq(datetime[m_low], datetime[m_up], length.out = 100)
 yy <- seq(m_low, m_up, length.out = 100)
 lines(xx, mean(coord[m_low:m_up]) + 10* 1/sqrt(scale) * real.morlet.wavelet((yy - m[1])/scale),
-      col = col[2], lwd = 1)
+      col = col[2], lwd = 2)
 mtext(title[1], line = -2, at = datetime[m_low+2])
 for (i in 1:nrow(nights)){
   if(nights$type[i] == 2){
@@ -121,7 +127,7 @@ for (i in 1:nrow(nights)){
 }
 box(lwd = 2)
 
-par(mar = c(6,1,4,3))
+par(mar = c(6,1,0,3))
 m <- M[[2]]
 m[2] <- wc$nr - m[2]
 m_low <- max(1, m[1]-10)
@@ -129,14 +135,14 @@ m_up <- min(wc$nc, m[1]+10)
 plot(datetime[m_low:m_up], coord[m_low:m_up], 
      xlab = "", ylab = "", bty = 'n',
      yaxt = "n", xaxt= 'n', main = "",
-     type = 'l', ylim = c(-37, -26), col = "black", lwd = 2, cex = 1.5)
-lines(datetime[m_low:m_up], act[m_low:m_up]*(8/200)-36,lty = 3, col = "gray22")
+     type = 'l', ylim = c(-37, -26), col = "black", lwd = 3, cex = 1.5)
+lines(datetime[m_low:m_up], act[m_low:m_up]*(8/200)-36,lty = 3, col = "gray22", lwd = 2)
 scale = wc$Scale[m[2]]
 time = datetime[m[1]]
 xx <- seq(datetime[m_low], datetime[m_up], length.out = 100)
 yy <- seq(m_low, m_up, length.out = 100)
 lines(xx, mean(coord[m_low:m_up]) + 10* 1/sqrt(scale) * real.morlet.wavelet((yy - m[1])/scale),
-      col = col[2], lwd = 1)
+      col = col[2], lwd = 2)
 mtext(title[2], line = -2, at = datetime[m_low+2])
 for (i in 1:nrow(nights)){
   if(nights$type[i] == 2){
@@ -147,15 +153,15 @@ box(lwd = 2)
 
 
 ### LEGEND
-par(mar = c(0,1,2.5,3))
+par(mar = c(0,1,2.4,3))
 plot(0,0, col = "white", bty = 'n', xaxt = 'n', yaxt = 'n', xlab = "", ylab = "")
 legend("center", 
-       c("Longitude (degrees)", "Daily Wet Time (%)", "Morlet Wavelet", "Wavelet Periods", "Nights"),
-       pch = c(NA,NA,NA,4, 15),
-       lwd = c(2,1,1, 2, 2),
-       lty = c(1,3,1, NA, NA),
-       col = c("black", "black", "firebrick", "firebrick", "grey"),
-       cex = 1.2,
+       c("Longitude (°)", 'Colony\'s Longitude', "Daily Wet Time (%)", "Morlet Wavelet", "Wavelet Periods", "Nights"),
+       pch = c(NA,NA,NA,NA,4, 15),
+       lwd = c(3,1,2,2, 2, 2),
+       lty = c(1,1,3,1, NA, NA),
+       col = c("black", "black", "black", "firebrick", "firebrick", "grey"),
+       cex = 1.3,
        bty = 'n')
 
 

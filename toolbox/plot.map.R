@@ -37,24 +37,34 @@ plot.kde.coord <- function(coord, alpha = 0.2, H=NULL, N=NULL, eez = EEZ_br, map
   
   gp <- ggplot() + ggtitle(title, subtitle = paste0("Presence in EEZ : " , round(PRESENCE*100), "%")) +
     geom_polygon(data = eez[-(250:1550),], mapping = aes(long,lat, alpha = 1), fill = "gray",
-                 colour = "black", linetype = 2) +
-    theme_bw() + theme(legend.position = "none", plot.margin = unit(c(.2,.2,.2,.2), units = "lines"))+  xlab("") + ylab("") +
+                 colour = "white", linetype = 1, show.legend = FALSE) +
+    theme_bw() + theme(legend.position = "right", 
+                       axis.text=element_text(size=12),
+                       plot.title = element_text(size=18),
+                       plot.subtitle=element_text(size=16),
+                       legend.text = element_text(size=14),
+                       plot.margin = unit(c(.2,.2,.2,.2), units = "lines"))+  xlab("") + ylab("") +
     geom_point(data = CRDS, mapping= aes(x, y),
-               size = 1, col = col, alpha= alpha) +
+               size = 1, col = col, alpha= alpha, show.legend = FALSE) +
     scale_color_gradientn(colours = c("white", col,
                                       adjustcolor(col,red.f=0.75, blue.f=0.75, green.f=0.75),
                                       adjustcolor(col,red.f=0.5, blue.f=0.5, green.f=0.5)),
                             aesthetics = c("colour", "fill"), na.value = "white") +
-    geom_tile(aes(x = longitude, y = latitude, fill = norm, alpha= 1), data = LKL)+
+    geom_tile(aes(x = longitude, y = latitude, fill = norm, alpha= 1), data = LKL, show.legend = FALSE)+
     geom_contour(aes(x = longitude, y = latitude, z = norm), data = LKL, 
                  colour = adjustcolor(col,red.f=0.75, blue.f=0.75, green.f=0.75),
-                 na.rm=TRUE, breaks=bk) +
+                 na.rm=TRUE, breaks=bk, show.legend = FALSE) +
     geom_map(data = map, map=map, aes(map_id=id),
-           fill="darkgray", color="#7f7f7f", size=0.5) +
+           fill="darkgray", color="#7f7f7f", size=0.5, show.legend = FALSE) +
     coord_fixed(xlim = c(-55, -25), ylim = c(-20, 10)) +
-    geom_text(data=country.label, mapping = aes(longitude, latitude, label = name), fontface="italic") +
-    geom_point(data = fdn, mapping= aes(longitude, latitude, shape= factor(z)),
-               size = 2.5)
+    geom_text(data=country.label, mapping = aes(longitude, latitude, label = name), size = 5, fontface="italic") +
+    geom_point(data = fdn, mapping= aes(longitude, latitude, shape= factor(z), size = 1.5)) +
+    scale_shape_discrete(
+      name = NULL,
+      breaks=c("Fernando de Noronha","Atol das Rocas","Sao Pedro Sao Paolo"),
+      labels = c("Fernando de Noronha","Atol das Rocas","São Pedro São Paolo")) +
+    guides(size = FALSE, shape = guide_legend(override.aes = list(size=3)))
+  
   return(gp)
 }
 
@@ -108,4 +118,12 @@ plot.map <- function(m, eez = EEZ_br, map = world, title = title){
                size = 3) + 
     theme_bw() + theme(legend.position = "none")+  xlab("") + ylab("") 
   return(gp)
+}
+
+library(gridExtra)
+g_legend<-function(a.gplot){
+  tmp <- ggplot_gtable(ggplot_build(a.gplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  legend
 }

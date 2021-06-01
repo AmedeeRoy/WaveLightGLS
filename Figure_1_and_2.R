@@ -73,26 +73,43 @@ for (data in list.data){
     act <- rep(NA, nrow(crds$x))
   }
   
+  if(nrow(birdDD$temperature)+1 == nrow(crds$x)){
+    temp <- c(NA,birdDD$temperature$mean)
+  } else{
+    temp <- rep(NA, nrow(crds$x))
+  }
+  
   out <- data.frame(bird = birdGLS$ID, time = crds$time, zenithT = median(z), zenith = max(z), 
                     tw_error = twl_dev_all, lon = crds$x[,1], lat =  crds$x[,2],
-                    act = act)
+                    act = act, temp = temp)
   DATA <- rbind(DATA, out)
   
   cat(i, ' out of ', length(list.data), '\n')
   i = i+1
 }
 
+
 ### TEMPERATURE ERROR AND DEVIATIONS
-DATA$temp_fdn_sat <-  getSSTPoint(path = "./data/METOFFICE-GLO-SST-L4-REP-OBS-SST_1590497114049.nc",
-                                  coord = matrix(rep(birdGLS$Pos.Deployment, nrow(DATA)), byrow = TRUE, ncol = 2),
-                                  time = DATA$time) -273.15
+
+DATA$temp_fdn_sat <- getSSTPoint(path = "./data/METOFFICE-GLO-SST-L4-REP-OBS-SST_1590497114049.nc",
+                                coord = matrix(rep(c(lon.breed, lat.breed), nrow(DATA)), ncol = 2, byrow = TRUE),
+                                time = DATA$time) -273.15
 
 DATA$temp_sat <-  getSSTPoint(path = "./data/METOFFICE-GLO-SST-L4-REP-OBS-SST_1590497114049.nc",
                                   coord = DATA[,c("lon", "lat")],
                                   time = DATA$time) -273.15
 
-diff <- DATA$temp_sat - DATA$temp_fdn_sat
-sel <- which(DATA$time >= calib.tm[1] & DATA$time <= calib.tm[2])
+diff <- DATA$temp - DATA$temp_fdn_sat
+sel <- DATA$time >= calib.tm[1] & DATA$time <= calib.tm[2]
+nights <- hour(DATA$time) < 12
+
+# temp_dt <- getSSTPoint(path = "./data/METOFFICE-GLO-SST-L4-REP-OBS-SST_1590497114049.nc", 
+#             coord = matrix(rep(c(lon.breed, lat.breed), 354), ncol = 2, byrow = TRUE), 
+#             time = seq(min(DATA$time), max(DATA$time), by = 'days')) -273.15
+# 
+# plot(temp_dt)
+
+
 
 ### FIGURE 1
 
@@ -103,8 +120,8 @@ hist(dev, xlim = c(-15, 40), ylim = c(0, 0.1), breaks = seq(-500, 1500, by = 2.5
      main = "", col = "grey",
      xlab = "", ylab ="density")
 mtext(side=1, line=2, at=5, adj=0, cex=0.8, "(minutes)")
-mtext(side=3, line=-2, at=40, adj=1, cex=1, "Twilight Deviation")
-mtext(side=3, line=-3, at=40, adj=1, cex=0.8, "Calibration period")
+mtext(side=3, line=-2, at=40, adj=1, cex=1, "(a) Twilight Deviation")
+mtext(side=3, line=-3.5, at=40, adj=1, cex=0.9, "Calibration period")
 gamma <- unique(CALIBRATION[,c("shape", "scale", "model")])
 # for ( i in 1:nrow(gamma)){
 #   xx <- seq(0, 40, by = 0.1)
@@ -117,46 +134,47 @@ fit_g <- fitdistr(dev, "gamma")
 lines(seq, dgamma(seq, fit_g$estimate[1], fit_g$estimate[2]), col = "firebrick", lwd = 2.5, lty = 2)
 
 seq_ = seq(-2,2,by = 0.01)
-hist(diff[sel], freq = F, xlim = c(-3, 3), ylim = c(0,1.5), breaks = seq(-5, 5, by = 0.25),
+hist(diff[sel], freq = F, xlim = c(-3, 3), ylim = c(0,2), breaks = seq(-10, 10, by = 0.25),
      main = "", col = "grey",
      xlab = "", ylab ="density")
 mtext(side=1, line=2, at=0, adj=0, cex=0.8, "(celsius)")
-mtext(side=3, line=-2, at=3, adj=1, cex=1, "Temperature Deviation")
-mtext(side=3, line=-3, at=3, adj=1, cex=0.8, "Calibration period")
-lines(seq_, 1*(abs(seq_)<0.5), col = "firebrick", lwd = 2.5, lty = 2)
+mtext(side=3, line=-2, at=3, adj=1, cex=1, "(b) Temperature Deviation")
+mtext(side=3, line=-3.5, at=3, adj=1, cex=0.9, "Calibration period")
+lines(seq_, 1/1.75*(seq_>-0.25&seq_<1.5), col = "firebrick", lwd = 2.5, lty = 2)
+
 
 hist(DATA$tw_error, xlim = c(-15, 40), ylim = c(0, 0.1), breaks = seq(-500, 1500, by = 2.5), freq = F,
      main = "", col = "#9ECAE1",
      xlab = "", ylab="density")
 mtext(side=1, line=2, at=5, adj=0, cex=0.8, "(minutes)")
-mtext(side=3, line=-2, at=40, adj=1, cex=1, "Twilight Deviation")
-mtext(side=3, line=-3, at=40, adj=1, cex=0.8, "Year-round data")
+mtext(side=3, line=-2, at=40, adj=1, cex=1, "(c) Twilight Deviation")
+mtext(side=3, line=-3.5, at=40, adj=1, cex=0.9, "Year-round data")
 lines(seq, dgamma(seq, fit_g$estimate[1], fit_g$estimate[2]), col = "firebrick", lwd = 2.5, lty = 2)
 
-hist(diff, freq = F, xlim = c(-3, 3), ylim = c(0,1.5), breaks = seq(-10, 10, by = 0.25),
+hist(diff, freq = F, xlim = c(-3, 3), ylim = c(0,2), breaks = seq(-10, 10, by = 0.25),
      main = "", col = "#9ECAE1",
      xlab = "", ylab="density")
-mtext(side=3, line=-2, at=3, adj=1, cex=1, "Temperature Deviation")
-mtext(side=3, line=-3, at=3, adj=1, cex=0.8, "Year-round data")
+mtext(side=3, line=-2, at=3, adj=1, cex=1, "(d) Temperature Deviation")
+mtext(side=3, line=-3.5, at=3, adj=1, cex=0.9, "Year-round data")
 mtext(side=1, line=2, at=0, adj=0, cex=0.8, "(celsius)")
-lines(seq_, 1*(abs(seq_)<0.5), col = "firebrick", lwd = 2.5, lty = 2)
+lines(seq_, 1/1.75*(seq_>-0.25&seq_<1.5), col = "firebrick", lwd = 2.5, lty = 2)
 
 ### HISTOGRAMS WITH HIGH ACTIVITY
 hist(DATA$tw_error[DATA$act>150], xlim = c(-15, 40), ylim = c(0, 0.1), breaks = seq(-500, 1500, by = 2.5), freq = F,
      main = "", col = "#FDAE6B",
      xlab = "", ylab="density")
 mtext(side=1, line=2, at=5, adj=0, cex=0.8, "(minutes)")
-mtext(side=3, line=-2, at=40, adj=1, cex=1, "Twilight Deviation")
-mtext(side=3, line=-3, at=40, adj=1, cex=0.8, "Time spent in water >75%")
+mtext(side=3, line=-2, at=40, adj=1, cex=1, "(e) Twilight Deviation")
+mtext(side=3, line=-3.5, at=40, adj=1, cex=0.9, "Time spent in water >75%")
 lines(seq, dgamma(seq, fit_g$estimate[1], fit_g$estimate[2]), col = "firebrick", lwd = 2.5, lty = 2)
 
-hist(diff[DATA$act>150], freq = F, xlim = c(-3, 3), ylim = c(0,1.5), breaks = seq(-10, 10, by = 0.25),
+hist(diff[DATA$act>150], freq = F, xlim = c(-3, 3), ylim = c(0,2), breaks = seq(-10, 10, by = 0.25),
      main = "", col = "#FDAE6B",
      xlab = "", ylab="density")
-mtext(side=3, line=-2, at=3, adj=1, cex=1, "Temperature Deviation")
-mtext(side=3, line=-3, at=3, adj=1, cex=0.8, "Time spent in water >75%")
+mtext(side=3, line=-2, at=3, adj=1, cex=1, "(f) Temperature Deviation")
+mtext(side=3, line=-3.5, at=3, adj=1, cex=0.9, "Time spent in water >75%")
 mtext(side=1, line=2, at=0, adj=0, cex=0.8, "(celsius)")
-lines(seq_, 1*(abs(seq_)<0.5), col = "firebrick", lwd = 2.5, lty = 2)
+lines(seq_, 1/1.75*(seq_>-0.25&seq_<1.5), col = "firebrick", lwd = 2.5, lty = 2)
 dev.off()
 
 ### FIGURE 2
@@ -202,6 +220,8 @@ for (k in 1:100){
 }
 
 
+diff <- DATA$temp - DATA$temp_sat
+
 map1_th <- plot.kde.coord(COORD[,c("lon", "lat")], H=2, N=100, alpha = 0, eez = EEZ_br, 
                           title = "(a) Error Range Estimation", col = "firebrick")
 map2_th <- plot.kde.coord(COORD[abs(COORD$temp_sat-COORD$temp_fdn_sat)<=0.5,c("lon", "lat")],
@@ -209,20 +229,30 @@ map2_th <- plot.kde.coord(COORD[abs(COORD$temp_sat-COORD$temp_fdn_sat)<=0.5,c("l
                           title = "(b) Error Range Estimation", col = "firebrick")
 
 map1 <- plot.kde.coord(DATA[,c("lon", "lat")], H=2, N=100, alpha = 0.1, eez = EEZ_br,
-                       title = "(a) Habitat Estimation", col = "#9ECAE1")
-map2 <- plot.kde.coord(DATA[abs(diff)<=0.5,c("lon", "lat")], H=2, N=100, alpha = 0.1, eez = EEZ_br,
-                       title = "(b) Habitat Estimation", col = "#9ECAE1")
+                       title = "(c) Positions Distribution", col = "#9ECAE1")
+map2 <- plot.kde.coord(DATA[ diff<=1.5 & diff >= -0.25,c("lon", "lat")], H=2, N=100, alpha = 0.1, eez = EEZ_br,
+                       title = "(d) Positions Distribution", col = "#9ECAE1")
 
 
 map1_act <- plot.kde.coord(DATA[which(DATA$act > 150),c("lon", "lat")], H=2, N=100, alpha = 0.1,
-                           eez = EEZ_br, title = "(a) Wet Habitat Estimation", col = "#FDAE6B")
-map2_act <- plot.kde.coord(DATA[which(DATA$act > 150 & abs(diff)<=0.5),c("lon", "lat")], H=2, N=100,
+                           eez = EEZ_br, title = "(e) Wet Positions Distribution", col = "#FDAE6B")
+map2_act <- plot.kde.coord(DATA[which(DATA$act > 150 & diff<=1.5 & diff >= -0.25),c("lon", "lat")], H=2, N=100,
                            alpha = 0.1, eez = EEZ_br, 
-                           title = "(b) Wet Habitat Estimation", col = "#FDAE6B")
+                           title = "(f) Wet Positions Distribution", col = "#FDAE6B")
+
+legend <- g_legend(map2_act)
 
 png("./figure/Figure_2.png", width = 1270, height = 800)
-grid.arrange(map1_th, map1, map1_act, map2_th, map2, map2_act, ncol=3, nrow = 2)
+grid.arrange(map1_th + theme(legend.position = 'none'),
+             map1+ theme(legend.position = 'none'),
+             map1_act+ theme(legend.position = 'none'),
+             legend,
+             map2_th+ theme(legend.position = 'none'),
+             map2+ theme(legend.position = 'none'),
+             map2_act+ theme(legend.position = 'none'), ncol=4, nrow = 2, 
+             widths = c(2/7, 2/7, 2/7, 1/7))
 dev.off()
+
 
 
 ## Bhattacharyya coefficient
@@ -240,61 +270,23 @@ f2 <- with(CRDS, kde2d(CRDS[,1], CRDS[,2], n = N, h = H, lims = c(-60, 0, -30, 2
 sum(sqrt(f1$z*f2$z/sum(f1$z)/sum(f2$z)))
 
 
-## mean distance to the colony --- For Figure 4
+###
+R = 6378
 
-# Read Metadata and select relevant data
-options(stringsAsFactors = FALSE)
-metadata = "./data/Metadata_GLS.csv"
-metadata <- read.csv(metadata, header=TRUE, sep=",")
-# selection
-DATA$sex <- sapply(DATA$bird, function(b){metadata$Sex[metadata$ID == b]})
-
-lon.dev.M <- (DATA[which(DATA$act > 150 & DATA$sex == "M" & 
-                        DATA$time>= as.Date("2018-01-01") &
-                        DATA$time<= as.Date("2018-03-15")),c("lon")])
-lon.dev.F <- (DATA[which(DATA$act > 150 & DATA$sex == "F" & 
-                           DATA$time>= as.Date("2018-01-01") &
-                           DATA$time<= as.Date("2018-03-15")),c("lon")])
-# orthodromic distance
-distance_ortho_robuste<-function(lat1m,lat2m,lon1m,lon2m){
-  R <- 6377726
-  dist.m<-R*2*asin(
-    ((sin((lat1m*pi/180-lat2m*pi/180)/2))^2+
-       cos(lat1m*pi/180)*cos(lat2m*pi/180)*(sin((lon1m*pi/180-lon2m*pi/180)/2))^2)^.5)
-  return(dist.m)
-  end
-}
+mean(abs(pi * R * (COORD$lon - lon.breed) / 180))
+sd(abs(pi * R * (COORD$lon - lon.breed) / 180))
 
 
-d.M <- 
-  sapply(lon.dev.M, function(l){
-  distance_ortho_robuste(lat.breed, lat.breed, lon.breed, l)
-})
-
-d.F <- 
-  sapply(lon.dev.F, function(l){
-    distance_ortho_robuste(lat.breed, lat.breed, lon.breed, l)
-  })
+mean(abs(pi * R * (COORD$lat - lat.breed) / 180))
+sd(abs(pi * R * (COORD$lat - lat.breed) / 180))
 
 
-HM <- hist(d.M/1000, breaks = seq(0, 5000, by = 30), plot = FALSE)
-HF <- hist(d.F/1000, breaks = seq(0, 5000, by = 30), plot = FALSE)
 
-plot(HF, col = adjustcolor("pink", alpha.f = 0.2), xlim = c(0, 700))
-plot(HM, col = adjustcolor("blue", alpha.f = 0.2), add = TRUE)
+mean(abs(pi * R * (COORD$lon[abs(COORD$temp_sat-COORD$temp_fdn_sat)<=0.5] - lon.breed) / 180), na.rm = TRUE)
+sd(abs(pi * R * (COORD$lon[abs(COORD$temp_sat-COORD$temp_fdn_sat)<=0.5] - lon.breed) / 180), na.rm = TRUE)
 
-median(d.M)
-median(d.F)
 
-d.M <- density(lon.dev.M - lon.breed, n = 1024)
-d.F <- density(lon.dev.F - lon.breed, n = 1024)
+mean(abs(pi * R * (COORD$lat[abs(COORD$temp_sat-COORD$temp_fdn_sat)<=0.5] - lat.breed) / 180), na.rm = TRUE)
+sd(abs(pi * R * (COORD$lat[abs(COORD$temp_sat-COORD$temp_fdn_sat)<=0.5] - lat.breed) / 180), na.rm = TRUE)
 
-plot(d.M$x, d.M$y, xlim = c(-1.5, 5), ylim = c(0, 0.5), lwd = 2, type = 'l', lty = 2, 
-     las = 1, xlab = "Eastward Deviation from FdN (degrees)", ylab = "Density",
-     main = "Positions Estimates of days in high wet environments( >75%)")
-lines(d.F$x, d.F$y, lwd = 2)
-legend("topright", c("F", "M"), lwd = 2, lty = c(1,2), bty = "n")
 
-t.test(lon.dev.M- lon.breed, lon.dev.F- lon.breed)
-
-save(d.M, d.M, file = paste0("./results/sex_difference_distance.RData"))

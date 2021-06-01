@@ -10,6 +10,7 @@ metadata = "./data/Metadata_GLS.csv"
 metadata <- read.csv(metadata, header=TRUE, sep=",")
 
 list.data = list.files("./results", pattern=".RData", all.files=FALSE,full.names=TRUE)
+list.data <- list.data[grepl("SUDA", list.data)]
 
 # selection
 idx <- unlist(sapply(metadata$ID[which(metadata$Sex == "F")], function(i){grep(i, list.data)}))
@@ -25,7 +26,7 @@ TIME <- data.frame( date = rep(days, 2),
                   )
 TIME <- TIME[order(TIME$date, TIME$type),]
 
-load(list.data[1])
+load(list.data[2])
 WC <- array(0, c(nrow(TIME), wc$nr, length(list.data)))
 PV <- array(1, c(nrow(TIME), wc$nr, length(list.data)))
 ANGLE <- array(0, c(nrow(TIME), wc$nr, length(list.data)))
@@ -79,14 +80,14 @@ wf = wc_f/nb_f
 af = angle_f/nb_f
 
 
-png('./figure/Figure_4.png', width = 800, height = 960)
+png('./figure/Figure_4.png', width = 600, height = 756)
 ### AVERAGED CROSS-POWER
-layout(matrix(c(1,1,1,1,
-                1,1,1,1,
-                2,2,2,2,
-                2,2,2,2,
-                3,3,3,3,
-                4,5,6,7), ncol = 4, byrow = TRUE))
+layout(matrix(c(1,1,1,
+                1,1,1,
+                2,2,2,
+                2,2,2,
+                3,3,3,
+                4,5,6), ncol = 3, byrow = TRUE))
 
 ## FEMALE
 par(mar = c(0,5,1,10))
@@ -113,12 +114,12 @@ for (i in 1:nrow(af)) {
   }
 }
 ### COI
-omega0 = 6
-fourier.factor = (2 * pi)/omega0
-coi = fourier.factor * sqrt(2) *  c(1e-5, 1:((nrow(WC) + 1)/2 - 1), rev((1:(nrow(WC)/2 - 1))), 1e-5)
-coi <- coi/max(coi)*max(wc$Period) + min(wc$Period)
-coi <- sapply(coi, function(o){which.min(abs(rev(wc$Period) - o))})
-polygon(c(1:nrow(WC), rev(1:nrow(WC))), c(coi, rep(-1, nrow(WC))), border = NA, col = rgb(1,1,1, alpha = 0.2))
+coi = COI(1, 1, nrow(time), ncol(WC), wc$Period)
+xx = coi$x
+yy = wc$nr-coi$y/max(coi$y)*wc$nr
+yy[1] = 0
+yy[length(yy)] = 0
+polygon(coi$x, yy, border = 'white', col = rgb(1,1,1, alpha = 0.6))
 text(labels = "(F)", x = 25, y = 75, col = "grey", cex = 2, lwd = 2)
 
 
@@ -146,17 +147,16 @@ for (i in 1:nrow(af)) {
   }
 }
 ### COI
-omega0 = 6
-fourier.factor = (2 * pi)/omega0
-coi = fourier.factor * sqrt(2) *  c(1e-5, 1:((nrow(WC) + 1)/2 - 1), rev((1:(nrow(WC)/2 - 1))), 1e-5)
-coi <- coi/max(coi)*max(wc$Period) + min(wc$Period)
-coi <- sapply(coi, function(o){which.min(abs(rev(wc$Period) - o))})
-polygon(c(1:nrow(WC), rev(1:nrow(WC))), c(coi, rep(-1, nrow(WC))), border = NA, col = rgb(1,1,1, alpha = 0.2))
+coi = COI(1, 1, nrow(time), ncol(WC), wc$Period)
+xx = coi$x
+yy = wc$nr-coi$y/max(coi$y)*wc$nr
+yy[1] = 0
+yy[length(yy)] = 0
+polygon(coi$x, yy, border = 'white', col = rgb(1,1,1, alpha = 0.6))
 text(labels = "(M)", x = 25, y = 75, col = "grey", cex = 2, lwd = 2)
 
 
 ## phenology masked booby
-
 laying <- as.Date(c("2017-03-15", "2017-05-10", "2018-03-15", "2018-05-10"))
 incubating <- as.Date(c("2017-03-15", "2017-06-15", "2018-03-15", "2018-06-15"))
 hatching <- as.Date(c("2017-05-01", "2017-06-15", "2018-05-01", "2018-06-15"))  # éclosion
@@ -184,20 +184,20 @@ text(labels = c("(a)", "(b)", "(c)"),
      col = c("firebrick", "grey", "gray22"),
      xpd = TRUE)
 #laying
-rect(laying[1],0, laying[2], 1, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 0.2))
-rect(laying[3],0, laying[4], 1, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 0.2))
+rect(laying[1],0, laying[2], 1, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 0.4))
+rect(laying[3],0, laying[4], 1, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 0.4))
 #incubating
-rect(incubating[1],1, incubating[2], 2, density = NULL, border = NA, col = adjustcolor("#9ECAE1", alpha.f = 0.4))
-rect(incubating[3],1, incubating[4], 2, density = NULL, border = NA, col = adjustcolor("#9ECAE1", alpha.f = 0.4))
+rect(incubating[1],1, incubating[2], 2, density = NULL, border = NA, col = adjustcolor("#AB1F17", alpha.f = 0.55))
+rect(incubating[3],1, incubating[4], 2, density = NULL, border = NA, col = adjustcolor("#AB1F17", alpha.f = 0.55))
 #hatching
-rect(hatching[1],2, hatching[2], 3, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 0.6))
-rect(hatching[3],2, hatching[4], 3, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 0.6))
+rect(hatching[1],2, hatching[2], 3, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 0.7))
+rect(hatching[3],2, hatching[4], 3, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 0.7))
 #rearing
-rect(rearing[1],3, rearing[2], 4, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 0.8))
-rect(rearing[3],3, rearing[4], 4, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 0.8))
+rect(rearing[1],3, rearing[2], 4, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 0.85))
+rect(rearing[3],3, rearing[4], 4, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 0.85))
 #fledging
-rect(fledging[1],4, fledging[2], 5, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 1))
-rect(fledging[3],4, fledging[4], 5, density = NULL, border = NA, col =  adjustcolor("#9ECAE1", alpha.f = 1))
+rect(fledging[1],4, fledging[2], 5, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 1))
+rect(fledging[3],4, fledging[4], 5, density = NULL, border = NA, col =  adjustcolor("#AB1F17", alpha.f = 1))
 
 
 par(mar = c(5,4.5,0,4))
@@ -223,16 +223,17 @@ lines(rev(wc$Period)/2, colMeans(wm[480:630,], na.rm = TRUE), col = "gray22", lw
 mtext("Periods", 1, line =3)
 mtext("Averaged Power", 2, line =3)
 mtext("(c)", 3, line =1)
-# abline(v = wc$Period[wc$nr-which.max(colMeans(wf[460:620,]))], lty = 2)
-
-par(mar = c(5,2,0,4))
-plot(d.M$x, d.M$y, xlim = c(-1.5, 5), ylim = c(0, 0.5), lwd = 2, type = 'l', lty = 2, 
-     las = 1, xlab = "", ylab = "",
-     main = "")
-lines(d.F$x, d.F$y, lwd = 2)
 legend("topright", c("F", "M"), lwd = 2, lty = c(1,2), bty = "n")
-mtext("Eastward Deviation (degrees)", 1, line =3)
-mtext("Density", 2, line =3)
-mtext("(c')", 3, line =1)
+# abline(v = wc$Period[wc$nr-which.max(colMeans(wf[460:620,]))], lty = 2)
+  
+# par(mar = c(5,2,0,4))
+# plot(d.M$x, d.M$y, xlim = c(-1.5, 5), ylim = c(0, 0.5), lwd = 2, type = 'l', lty = 2, 
+#      las = 1, xlab = "", ylab = "",
+#      main = "")
+# lines(d.F$x, d.F$y, lwd = 2)
+# legend("topright", c("F", "M"), lwd = 2, lty = c(1,2), bty = "n")
+# mtext("Eastward Deviation (degrees)", 1, line =3)
+# mtext("Density", 2, line =3)
+# mtext("(c')", 3, line =1)
 
 dev.off()
