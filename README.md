@@ -1,6 +1,8 @@
 # WaveLightGLS
 
-Materials for the paper "Did the animal move? A cross-wavelet approach to geolocation data reveals year-round whereabouts of a resident seabird" (in review)
+Materials for the paper "Did the animal move? A cross-wavelet approach to geolocation data reveals year-round whereabouts of a resident seabird"
+
+Associated to paper : https://link.springer.com/article/10.1007/s00227-021-03923-x
 
 ## Description of the Repository
 
